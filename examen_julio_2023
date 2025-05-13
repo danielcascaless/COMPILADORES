@@ -1,0 +1,461 @@
+**Ejercicio 1: Propiedades que impiden que una gramática sea LL(1)**
+
+---
+
+### 🎓 Enunciado:
+
+La gramática G₁ está definida por:
+
+```
+(1) S → i = A
+(2) A → A = A
+(3) A → i
+(4) A → (A)
+```
+
+Esta gramática representa sentencias de asignación donde el operador `=` es asociativo por la derecha. Se pregunta si tiene alguna propiedad que impida que sea LL(1).
+
+---
+
+### 🔍 Análisis:
+
+La producción:
+
+```
+A → A = A
+```
+
+provoca dos problemas que impiden que la gramática sea LL(1):
+
+#### 🔁 1. Recursividad por la izquierda
+
+* Esta regla se refiere a sí misma en la primera posición, lo que impide construir una tabla LL(1).
+* Ejemplo: al analizar `A`, se entra en `A → A = A` y vuelve a `A` sin consumir ningún terminal.
+
+#### ❗ 2. Ambigüedad
+
+* Una cadena como `i = i = i` puede derivarse de varias formas dependiendo de cómo se agrupen los operadores `=`.
+* Esto genera múltiples árboles de derivación para la misma cadena.
+
+---
+
+### ✅ Conclusión
+
+La gramática **NO es LL(1)** porque:
+
+* Tiene **recursividad por la izquierda**.
+* Es **ambigua**, ya que admite más de un árbol de derivación para ciertas entradas.
+
+Para que pudiera ser LL(1), se necesitaría eliminar ambos problemas con una transformación adecuada.
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+**Ejercicio 2: Transformación para hacer la gramática LL(1)**
+
+---
+
+### 🎓 Enunciado:
+
+Teniendo en cuenta la asociatividad del operador `=`, realiza las transformaciones necesarias para que la gramática **G1** del ejercicio anterior se convierta en una gramática **G1'** que pueda analizarse con el método LL(1).
+
+---
+
+### 🔄 Paso 1: Eliminar la ambigüedad
+
+El operador `=` es **asociativo por la derecha**, por lo tanto hay que reescribir las reglas de forma que reflejen esto y eviten la recursividad por la izquierda.
+
+Transformamos:
+
+```
+S → i = A
+A → F = A | F
+F → i | (A)
+```
+
+Ahora `A` no tiene recursividad por la izquierda. Aun así, la producción `A → F = A | F` comparte un prefijo `F`, lo que requiere **eliminación de factores comunes**.
+
+---
+
+### ✍️ Paso 2: Eliminar factores comunes
+
+Aplicamos factorización:
+
+```
+A → F A'
+A' → = A | λ
+```
+
+Quedando la gramática transformada como:
+
+```
+(1) S  → i = A
+(2) A  → F A'
+(3) A' → = A
+(4) A' → λ
+(5) F  → i
+(6) F  → (A)
+```
+
+---
+
+### ✅ Conclusión
+
+Esta nueva gramática **G1'**:
+
+* Elimina la **ambigüedad**.
+* Es **equivalente** a G1 en significado.
+* Es apta para construcción de tabla LL(1), ya que no tiene ni recursividad por la izquierda ni factores comunes.
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+**Ejercicio 3: Cálculo de PRIMERO, SIGUIENTE y PREDICT**
+
+---
+
+### 🎓 Enunciado:
+
+A partir de la gramática transformada G1':
+
+```
+(1) S  → i = A
+(2) A  → F A'
+(3) A' → = A
+(4) A' → λ
+(5) F  → i
+(6) F  → (A)
+```
+
+Calcular los conjuntos **PRIMERO**, **SIGUIENTE** y **PREDICT** de todos los no terminales.
+
+---
+
+### 🔢 Conjuntos PRIMERO
+
+```
+PRIMERO(S)  = { i }
+PRIMERO(A)  = { i, ( }
+PRIMERO(A') = { =, λ }
+PRIMERO(F)  = { i, ( }
+```
+
+* `S` deriva a `i` directamente.
+* `A` comienza en `F`, que puede ser `i` o `(`.
+* `A'` tiene una producción con `=` y una vacía (`λ`).
+
+---
+
+### 🔍 Conjuntos SIGUIENTE
+
+```
+SIGUIENTE(S)  = { $ }
+SIGUIENTE(A)  = { $ }
+SIGUIENTE(A') = { $ }
+SIGUIENTE(F)  = { =, $ }
+```
+
+* `S` es el símbolo inicial, por eso su SIGUIENTE contiene `$`.
+* `A` aparece en la derecha de `S → i = A`, por lo tanto hereda SIGUIENTE(S).
+* `A'` aparece justo después de `F` en `A → F A'`, por lo que hereda SIGUIENTE(A).
+* `F` está antes de `A'`, pero como `A'` puede ser `λ`, F hereda SIGUIENTE(A) también.
+
+---
+
+### 📌 Conjuntos PREDICT
+
+Se calcula con la fórmula:
+
+```
+PREDICT(X → α) = PRIMERO(α) ∪ (SIGUIENTE(X) si λ ∈ PRIMERO(α))
+```
+
+```
+PREDICT(1) = { i }
+PREDICT(2) = { i, ( }
+PREDICT(3) = { = }
+PREDICT(4) = { $ }
+PREDICT(5) = { i }
+PREDICT(6) = { ( }
+```
+
+---
+
+### ✅ Conclusión
+
+Los conjuntos PRIMERO, SIGUIENTE y PREDICT están correctamente definidos para construir la tabla LL(1) sin conflictos.
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+**Ejercicio 4: Tabla de análisis LL(1)**
+
+---
+
+### 🎓 Enunciado:
+
+A partir de la gramática G₁':
+
+```
+(1) S  → i = A
+(2) A  → F A'
+(3) A' → = A
+(4) A' → λ
+(5) F  → i
+(6) F  → (A)
+```
+
+Se pide construir la tabla de análisis LL(1) y razonar si G₁' es LL(1).
+
+---
+
+### 📊 Tabla LL(1)
+
+| NO TERM | i | = | ( | ) | \$ |
+| ------- | - | - | - | - | -- |
+| S       | 1 |   |   |   |    |
+| A       | 2 |   | 2 |   |    |
+| A'      |   | 3 |   | 4 | 4  |
+| F       | 5 |   | 6 |   |    |
+
+Interpretación:
+
+* Las celdas contienen el número de regla que se aplica según el terminal.
+* Ejemplo: para A con entrada `i`, se aplica la regla (2) porque PRIMERO(F A') = { i, ( }.
+
+---
+
+### ✅ Conclusión
+
+* La tabla **no tiene conflictos**: cada celda contiene **como máximo una regla**.
+* Por tanto, podemos afirmar que la gramática **G₁' es LL(1)**.
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+**Ejercicio 5: Colección LR(1) y cálculos de GOTO**
+
+---
+
+### 🎓 Enunciado:
+
+Se da la gramática G₂ con:
+
+```
+(1) S → A B
+(2) S' → B
+(3) S → C a
+(4) A → b B a
+(5) B → A
+(6) B → b
+(7) C → A
+```
+
+Se pide:
+
+* Calcular los conjuntos de items LR(1) I₀, I₅, I₆.
+* Calcular los GOTO que faltan.
+
+---
+
+### 📦 Conjuntos LR(1)
+
+**I₀ =**
+
+```
+{ S' → · S , $ }
+{ S → · A B , $ }
+{ S → · B , $ }
+{ S → · C a , $ }
+{ A → · b B a , $/a }
+{ B → · A , $ }
+{ B → · b , $ }
+{ C → · A , a }
+```
+
+**I₅ = GOTO(I₀, b) =**
+
+```
+{ A → b · B a , $/b/$/a }
+{ B → · b , $ }
+{ B → · A , $ }
+{ B → · b , a }
+{ B → · A , a }
+{ A → · b B a , a }
+```
+
+**I₆ = GOTO(I₂, B) =**
+
+```
+{ S → A B · , $ }
+```
+
+---
+
+### 🔁 GOTO faltantes
+
+Según la tabla final, se deducen los siguientes GOTO:
+
+```
+GOTO(I₈, b) = I₁₂
+GOTO(I₈, A) = I₁₁
+GOTO(I₂, b) = I₁₂
+GOTO(I₂, A) = I₁₁
+```
+
+---
+
+### ✅ Conclusión
+
+Los conjuntos LR(1) y los GOTO adicionales calculados completan la colección hasta donde se pedía, manteniendo la consistencia de los accesos entre estados.
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+**Ejercicio 6: Filas de la tabla LR-Canónica**
+
+---
+
+### 🎓 Enunciado:
+
+Se pide completar las filas correspondientes a los estados 2, 5 y 14 de la **tabla LR-Canónica** de la gramática G₂.
+
+---
+
+### 📋 Tabla (fragmento de filas requeridas)
+
+| Estado | ACCIÓN (a) | ACCIÓN (b) | ACCIÓN (\$) | IR-A (S) | IR-A (A) | IR-A (B) | IR-A (C) |
+| ------ | ---------- | ---------- | ----------- | -------- | -------- | -------- | -------- |
+| 2      | r7         | d8         | r5          |          | 7        | 6        |          |
+| 5      |            | d12        | r6          |          | 11       | 10       |          |
+| 14     | r4         | r4         | r4          |          |          |          |          |
+
+---
+
+### 🧠 Justificación:
+
+* **Estado 2**:
+
+  * Contiene item `C → · A , a`, y `B → · b , $`.
+  * Reduce con `B → b` en `$`, y `C → A` en `a`, por tanto `r5` y `r7` aparecen.
+  * Desde aquí se puede hacer GOTO a `S → A B` → estados 7 y 6.
+
+* **Estado 5**:
+
+  * Tiene `A → b · B a` como núcleo. Desde aquí se puede desplazar con `a` a `d12`.
+  * Si `B → A` o `B → b` son completados en este estado, se va a estados 11 y 10.
+
+* **Estado 14**:
+
+  * Contiene item `A' → λ , {a, b, $}` (por ejemplo), con lo cual reduce por la regla 4 para todos esos terminales.
+
+---
+
+### ✅ Conclusión
+
+Las filas de la tabla LR-Canónica están correctamente determinadas para los estados 2, 5 y 14, de acuerdo con los items LR(1) que contienen y las transiciones posibles por terminales y no terminales.
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+**Ejercicio 7: Agrupación de conjuntos para colección LALR**
+
+---
+
+### 🎓 Enunciado:
+
+Se pide indicar qué conjuntos de items LR(1) se deben **agrupar** para formar la colección **LALR**, y cuál es su contenido.
+
+Esto se basa en agrupar los **conjuntos con el mismo núcleo**, es decir, mismos items sin mirar los lookahead.
+
+---
+
+### 📦 Agrupaciones de conjuntos
+
+#### I₅, I₈, I₁₂:
+
+```
+{ A → b · B a , b/$/a }
+{ B → · b , $/a }
+{ B → · A , a }
+{ B → · b , a }
+{ A → · b B a , a }
+```
+
+#### I₁₀, I₁₃, I₁₅:
+
+```
+{ A → b B · a , b/$/a }
+```
+
+#### I₇, I₁₁:
+
+```
+{ B → A · , $/a }
+```
+
+#### I₁₄, I₁₆, I₁₇:
+
+```
+{ A → b B a · , b/$/a }
+```
+
+---
+
+### ✅ Conclusión
+
+* Los conjuntos con el mismo núcleo pero distintos lookahead se **fusionan**.
+* El resultado es una colección **más compacta** de estados.
+* Esto permite reducir el tamaño de la tabla manteniendo la capacidad de reconocimiento.
+
+✅ Así se construye correctamente la colección LALR.
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+**Ejercicio 8: Clasificación de la gramática como LR-Canónica, LALR y/o SLR**
+
+---
+
+### 🎓 Enunciado:
+
+Justifica si la gramática es:
+
+* **LR-Canónica (LR(1))**
+* **LALR(1)**
+* **SLR(1)**
+
+---
+
+### 🔎 Análisis
+
+#### ✅ LR-Canónica:
+
+Analizando la colección LR(1) del **Ejercicio 5**, los estados con acciones de reducción y desplazamiento **no presentan conflictos** `r/r` ni `d/r`.
+
+* Ejemplo: los estados I₂, I₅, I₈ e I₁₂ están bien definidos y no hay ambigüedad.
+* Por tanto, **la gramática es LR-Canónica**.
+
+#### ✅ LALR:
+
+En el **Ejercicio 7**, al agrupar los estados con el mismo núcleo, tampoco se producen conflictos `r/r`.
+
+* La compactación de la colección no genera ambigüedad.
+* Por tanto, **la gramática también es LALR**.
+
+#### ❌ SLR:
+
+Analizando el estado I₂ y considerando que:
+
+* SIGUIENTE(B) = { \$, a }
+* SIGUIENTE(C) = { a }
+
+En la colección SLR, los items:
+
+* `B → A ·` y `C → A ·` coinciden con el mismo lookahead `a`, produciendo **un conflicto `r/r`**.
+
+Por tanto, **la gramática no es SLR(1)**.
+
+---
+
+### ✅ Conclusión
+
+* ✔️ Es **LR-Canónica** ✅
+* ✔️ Es **LALR(1)** ✅
+* ❌ No es **SLR(1)** ❌
+
+---
+
