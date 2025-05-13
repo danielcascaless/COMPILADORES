@@ -1,0 +1,22 @@
+CC := gcc
+FLEX := flex
+
+all: minicc
+
+minicsem.tab.c minicsem.tab.h: minicsem.y
+	bison -v -d --graph minicsem.y
+
+lex.yy.c: lexer.l minicsem.tab.h
+	flex lexer.l
+
+minicc: lex.yy.c main.c minicsem.tab.h
+	gcc -g -O0 -Wall -pedantic lex.yy.c listaCodigo.c listaSimbolos.c minicsem.tab.c main.c -lfl -o minicc
+
+.PHONY: clean doc
+clean:
+	rm -f minicsem.tab.c minicsem.tab.h lex.yy.c minicc
+
+doc:
+	arfts memoria.ats > memoria.txt
+	iconv -f utf8 -t latin1 memoria.txt | enscript -l -M A4 -f Courier@11 -p - | ps2pdf - - > memoria.pdf
+
