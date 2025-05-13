@@ -1,0 +1,448 @@
+**Resolución paso a paso del examen de Compiladores - Enero 2018**
+
+---
+
+### 🤔 Ejercicio 1: Transformación de gramática (Eliminación de recursividad + Factorización)
+
+#### ✏️ Enunciado:
+
+Indica las características que tiene la gramática G que impiden que sea LL(1). Modifícala adecuadamente.
+
+#### 🔄 Paso 1: Analizar la gramática original
+
+```
+E  → E + E | E - E | E ! | N
+N  → 0 | s(N)
+```
+
+Esta gramática tiene dos problemas que impiden que sea LL(1):
+
+1. **Recursividad por la izquierda**: las tres primeras reglas de `E` comienzan con `E`, lo que hace que se entre en bucle al intentar analizar predictivamente.
+2. **Factores comunes**: todas esas reglas empiezan con el mismo símbolo (E), lo que impide decidir la producción con solo mirar el siguiente token.
+
+#### 🎓 Teoría:
+
+* Un analizador **LL(1)** necesita que con **una mirada (1 token)** sepamos qué producción usar.
+* La **recursividad por la izquierda** rompe esto porque genera una expansión infinita sin consumir entrada.
+
+#### 🎓 ¿Cómo se elimina?
+
+Para cualquier regla del tipo: `A → Aα | β`, se reescribe como:
+
+```
+A  → β A'
+A' → α A' | λ
+```
+
+#### 🎓 ¿Cómo se factoriza?
+
+Cuando hay reglas como: `A → αβ1 | αβ2`, se reescriben como:
+
+```
+A  → α A'
+A' → β1 | β2
+```
+
+#### 📚 Aplicamos a la gramática:
+
+1. Eliminamos la recursividad por la izquierda:
+
+```
+E  → N E'
+E' → + E | - E | ! | λ
+```
+
+2. Factorizamos para reagrupar estructuras comunes (prefijos de operador):
+
+```
+E' → + E E' | - E E' | ! E' | λ
+```
+
+3. Gramática resultante:
+
+```
+E  → N E'
+E' → + E E' | - E E' | ! E' | λ
+N  → 0 | s(N)
+```
+
+✅ Esta gramática ya es apta para LL(1): no hay ambigüedad ni recursividad por la izquierda.
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+### 🧠 Ejercicio 2: Cálculo de PRIMERO, SIGUIENTE y tabla LL(1)
+
+#### 🎓 Teoría:
+
+* **PRIMERO(X)**: conjunto de terminales que pueden iniciar derivaciones desde X.
+* **SIGUIENTE(X)**: conjunto de terminales que pueden aparecer justo después de X en alguna derivación.
+* Se usan para construir la **tabla de análisis LL(1)**.
+
+#### 🔢 Paso 1: Cálculo de PRIMERO
+
+```
+PRIMERO(E) = PRIMERO(N) = { 0, s }
+PRIMERO(E') = { +, -, !, λ }
+PRIMERO(E'') = { +, - }
+```
+
+#### 🔍 Paso 2: Cálculo de SIGUIENTE
+
+```
+SIGUIENTE(E) = { +, -, !, $ }
+SIGUIENTE(E') = { +, -, !, $ }
+SIGUIENTE(E'') = { +, -, !, $ }
+SIGUIENTE(N) = { +, -, !, $ }
+```
+
+#### 📊 Paso 3: Tabla LL(1)
+
+Usamos: `PREDICT(A → α) = PRIMERO(α) ∪ (SIGUIENTE(A) si α ⇒ λ)`
+
+| NO TERM | +          | -          | !        | 0          | s          | ( | ) | \$     |
+| ------- | ---------- | ---------- | -------- | ---------- | ---------- | - | - | ------ |
+| E       |            |            |          | E → N E'   | E → N E'   |   |   |        |
+| E'      | E' → λ     | E' → λ     | E' → !E' | E' → E E'' | E' → E E'' |   |   | E' → λ |
+| E''     | E'' → + E' | E'' → - E' |          |            |            |   |   |        |
+| N       |            |            |          | N → 0      | N → s(N)   |   |   |        |
+
+✅ Como se puede observar, no hay conflictos en la tabla y, por tanto, la gramática es **LL(1)**.
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+**Ejercicio 3: Comprobación de SLR(1)**
+
+---
+
+### 🎓 Teoría:
+
+* Un analizador SLR(1) se basa en construir una **colección de conjuntos de items LR(0)**.
+* Cada item tiene la forma `A → α · β`, donde el punto indica lo que ya se ha reconocido.
+* Se usa el conjunto **SIGUIENTE** para saber en qué columnas insertar reducciones.
+
+Una tabla SLR es válida si **no hay conflictos** (por ejemplo, shift/reduce o reduce/reduce en una misma celda).
+
+---
+
+### 🛠️ Paso 1: Colección de conjuntos LR(0)
+
+Se construyen los conjuntos de items paso a paso, con GOTO y CLOSURE.
+
+```
+I0 = { E' → · E, E → · E + E, E → · E - E, E → · E !, E → · N, N → · 0, N → · s ( N ) }
+```
+
+Desde I0, aplicamos GOTO por los símbolos posibles:
+
+```
+GOTO(I0, E) = I1 = { E' → E · }
+GOTO(I0, N) = I2 = { E → N · }
+GOTO(I0, 0) = I3 = { N → 0 · }
+GOTO(I0, s) = I4 = { N → s · ( N ) }
+GOTO(I4, () = I5 = { N → s ( · N ) }
+GOTO(I5, N) = I6 = { N → s ( N · ) }
+GOTO(I6, )) = I7 = { N → s ( N ) · }
+```
+
+Y así sucesivamente hasta generar todos los estados necesarios.
+
+Los conjuntos SIGUIENTE se usan para las reducciones:
+
+```
+SIGUIENTE(E) = { 0, s, +, -, !, $ }
+SIGUIENTE(N) = { 0, s, +, -, !, $ }
+```
+
+---
+
+### 📈 Paso 2: Tabla de análisis SLR(1)
+
+La tabla resultante se construye enumerando las reglas por orden de aparición y completando la tabla con las acciones de desplazamiento (`d#`), reducción (`r#`), aceptación (`acep`) e IR-A.
+
+| Estado | +  | -  | !  | 0  | s  | (  | )   | \$   | E | N  |
+| ------ | -- | -- | -- | -- | -- | -- | --- | ---- | - | -- |
+| 0      |    |    |    | d3 | d4 |    |     |      | 1 | 2  |
+| 1      |    |    | d6 | d3 |  d4|    |     | acep | 5 | 2  |
+| 2      | r4 | r4 | r4 | r4 | r4 |    |     | r4   |   |    |
+| 3      | r5 | r5 | r5 | r5 | r5 |    |  r5 | r5   |   |    |
+| 4      |    |    |    |    |    | d7 |     |      |   |    |
+| 5      | d8 | d9 | d6 | d3 | d4 |    |     |      | 5 | 2  |
+| 6      | r3 | r3 | r3 | r3 | r3 |    |     | r3   |   |    |
+| 7      |    |    |    | d3 | d4 |    |     |      |   | 10 |
+| 8      | r1 | r1 | r1 | r1 | r1 |    |     | r1   |   |    |
+| 9      | r2 | r2 | r2 | r2 | r2 |    |     | r2   |   |    |
+| 10     |    |    |    |    |    |    | d11 |      |   |    |
+| 11     | r6 | r6 | r6 | r6 | r6 |    |  r6 | r6   |   |    |
+
+* `r1`: E → E + E
+* `r2`: E → E - E
+* `r3`: E → E !
+* `r4`: E → N
+* `r5`: N → 0
+* `r6`: N → s(N)
+
+---
+
+### ✅ Conclusión:
+
+Como no hay conflictos en la tabla (cada celda tiene una sola acción válida), **la gramática es SLR(1)**.
+
+Esta comprobación implica también que la gramática será LALR(1) y LR(1), porque:
+
+```
+SLR(1) ⊆ LALR(1) ⊆ LR(1)
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+**Ejercicio 4: Comprobación de LR(1) y LALR(1)**
+
+---
+
+### 🎓 Teoría previa
+
+En la jerarquía de gramáticas descendentes y ascendentes, las clases de gramáticas se relacionan así:
+
+```
+LR(1) ⊇ LALR(1) ⊇ SLR(1)
+```
+
+Esto significa que:
+
+* Si una gramática es **SLR(1)**, entonces **tambien es LALR(1)** y **LR(1)**.
+* LALR(1) es una simplificación de LR(1) que mantiene el poder de reconocimiento de muchas gramáticas sin requerir tanto espacio en la tabla.
+
+Por lo tanto, **no hace falta construir nuevas colecciones** si ya sabemos que es SLR(1). Se deduce directamente.
+
+---
+
+### 📅 Paso 1: Comprobar si ya hemos demostrado que es SLR(1)
+
+En el ejercicio anterior (Ejercicio 3), se construyó correctamente la tabla SLR(1) y se comprobó que:
+
+* No hay conflictos
+* La tabla es determinista
+
+Por definición:
+
+> Toda gramática que sea SLR(1) también es LALR(1) y LR(1).
+
+---
+
+### ✅ Conclusión final:
+
+✅ **La gramática es LR(1)**
+✅ **La gramática es LALR(1)**
+
+Justificación: porque **ya hemos comprobado que es SLR(1)**, y eso implica directamente que también pertenece a las clases superiores.
+
+No es necesario construir nuevas tablas ni colecciones adicionales.
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+**Ejercicio 5: Análisis de entrada con tratamiento de errores (modo pánico)**
+
+---
+
+### 🎓 Teoría previa: modo pánico
+
+El **modo pánico** es una estrategia de **recuperación de errores** en los analizadores sintácticos.
+
+Cuando se detecta un error en la entrada (por ejemplo, un token inesperado), el analizador:
+
+1. **Descarta símbolos** de la pila hasta encontrar un estado estable.
+2. **Descarta tokens** de la entrada hasta hallar uno que pertenezca al conjunto de sincronización.
+3. Luego **reanuda el análisis** en ese punto.
+
+Esto evita que el análisis se detenga por completo tras el primer error y permite detectar más errores en una sola pasada.
+
+---
+
+### 🔄 Entrada a analizar: `s(0)+`
+
+Vamos a simular el proceso de análisis sintáctico usando la **tabla SLR(1)** con modo pánico.
+
+La entrada está en notación postfija. Se añade el símbolo de fin de entrada `$`:
+**`s ( 0 ) + $`**
+
+---
+
+### ✏️ Simulación paso a paso:
+
+| **PILA**            | **ENTRADA** | **ACCIÓN**                                    |
+| ------------------- | ----------- | --------------------------------------------- |
+| 0                   | s(0)+\$     | d4                                            |
+| 0 s 4               | (0)+\$      | d7                                            |
+| 0 s 4 ( 7           | 0)+\$       | d3                                            |
+| 0 s 4 ( 7 0 3       | )+\$        | r5: N → 0                                     |
+| 0 s 4 ( 7 N 10      | )+\$        | d11                                           |
+| 0 s 4 ( 7 N 10 ) 11 | +\$         | r6: N → s(N)                                  |
+| 0 N 2               | +\$         | r4: E → N                                     |
+| 0 E 1               | +\$         | Error: apilar E con IR-A\[1,E]=5 y continuar. |
+| 0 E 1 E 5           | +\$         | d8                                            |
+| 0 E 1 E 5 + 8       | \$          | r1: E → E + E                                 |
+| 0 E 1               | \$          | Finalizar: entrada no aceptada.               |
+
+
+---
+
+### ✅ Conclusión
+
+* La entrada `s(0)+` **no es aceptada** inicialmente.
+* Se recupera usando el modo pánico y se puede continuar el análisis.
+* La gramática permite **detectar errores y seguir analizando** gráficamente.
+
+Esto muestra la utilidad del tratamiento de errores en compiladores para mejorar la retroalimentación al programador.
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+**Ejercicio 6: Comprobación de ambigüedad**
+
+---
+
+### 🎓 Teoría previa: ambigüedad gramatical
+
+Una **gramática es ambigua** si existe **al menos una cadena** para la cual se pueden construir **dos árboles de derivación distintos** (o tablas de parsing con conflictos).
+
+Indicadores comunes de ambigüedad:
+
+* El mismo string se puede derivar con diferentes estructuras sintácticas.
+* La tabla de análisis (LL(1), LR(1), SLR...) tiene **conflictos**.
+
+---
+
+### 🔄 Comprobación en este caso
+
+Ya hemos construido en el Ejercicio 3 la tabla **SLR(1)** y observamos que:
+
+* No tiene conflictos (ni shift/reduce ni reduce/reduce).
+* Cada celda contiene una sola acción.
+
+Esto es evidencia formal de que la gramática **no es ambigua**.
+
+---
+
+### ✅ Justificación adicional
+
+En este caso, la notación usada es **postfija**, donde los operandos van primero y luego los operadores. Ejemplo:
+
+```
+Infix:     (1 + 2) * 3
+Postfijo:  1 2 + 3 *
+```
+
+Esto **elimina la necesidad de paréntesis** o reglas de precedencia:
+
+* El orden de los operandos y operadores **ya implica la estructura**.
+* Por tanto, **no hay posibilidad de interpretación alternativa**.
+
+---
+
+### ✅ Conclusión
+
+La gramática:
+
+* ✅ **No es ambigua**, porque no hay conflictos en la tabla SLR.
+* ✅ Usa una notación postfija que asegura una única interpretación.
+
+Por lo tanto, se puede afirmar con certeza que esta gramática es **no ambigua**.
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+**Ejercicio 7: Definición Dirigida por la Sintaxis (DDS) y atributos**
+
+---
+
+### 🎓 Teoría previa: DDS, atributos y gramáticas atribuídas
+
+Una **DDS** (Definición Dirigida por la Sintaxis) es una gramática extendida con **atributos** y **reglas semánticas** asociadas a las producciones.
+
+* Un **atributo sintetizado** se calcula de los hijos hacia el padre.
+* Un **atributo heredado** se pasa del padre a los hijos.
+
+Clasificación:
+
+* Una gramática **S-atribuida** usa solo atributos sintetizados.
+* Una gramática **L-atribuida** puede usar ambos, siempre que no haya dependencias hacia la derecha entre hermanos.
+
+---
+
+### a) Tabla de atributos definidos
+
+| Símbolo | Atributo | Dato | Tipo        | Comentario                                            |
+| ------- | -------- | ---- | ----------- | ----------------------------------------------------- |
+| E'      | res      | int  | Sintetizado | Valor resultado de la expresión en notación postfija. |
+| E       | v        | int  | Sintetizado | Valor representado por el nodo E.                     |
+| N       | v        | int  | Sintetizado | Valor representado por el nodo N.                     |
+
+
+---
+
+###  Reglas semánticas
+
+| Regla de producción | Regla semántica                                      |
+| ------------------- | ---------------------------------------------------- |
+| E' → E              | E'.res = E.v;                                        |
+| E → E₁ E₂ +         | E.v = E₁.v + E₂.v;                                   |
+| E → E₁ E₂ -         | E.v = E₁.v - E₂.v;                                   |
+| E → E₁ !            | E.v = 1;  for (i = 2; i ≤ E₁.v; i++) E.v = E.v \* i; |
+| E → N               | E.v = N.v;                                           |
+| N → s(N)            | N.v = N₁.v + 1;                                      |
+| N → 0               | N.v = 0;                                             |
+
+
+---
+
+### b) Ejemplo de entrada: `s(0)s(0)+!`
+
+Vamos a ver el árbol anotado (resumen):
+
+```
+              E'
+            .v = 2
+              |
+              E
+            .v = 2
+              |
+              E
+            .v = 2
+           /    \
+         E       !
+       .v = 2
+     /    \
+   E       +
+ .v = 1   .v = 1
+  |         |
+  N         N
+.v = 1    .v = 1
+ / | \     / | \
+s  ( N )   s  ( N )
+     |         |
+  N .v=0     N .v=0
+     |         |
+     0         0
+```
+
+Valor final (E.res) = 2
+
+---
+
+### c) Clasificación de la DDS
+
+* ✅ **S-atribuida**: todos los atributos son sintetizados.
+* ✅ **L-atribuida**: cumple la condición porque no hay dependencias hacia la derecha entre hermanos ni uso de atributos heredados.
+
+---
+
+### ✅ Conclusión
+
+La gramática con la DDS definida:
+
+* Es **S-atribuida** ✅
+* Es **L-atribuida** ✅
+
+Esto facilita la implementación de analizadores semánticos en compiladores reales.
+
+---
+
+
+
